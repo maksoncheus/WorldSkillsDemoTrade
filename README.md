@@ -156,7 +156,59 @@
 
 ![Директория сессии](/TutorialResources/session_directory.png)
 
-Также, здесь располагается файл со скриптом для СУБД (MS SQL и MySQL)
+Также, здесь располагается файл со скриптом для СУБД (MS SQL и MySQL):
+
+```
+create database [Trade]
+go
+use [Trade]
+go
+create table [Role]
+(
+	RoleID int primary key identity,
+	RoleName nvarchar(100) not null
+)
+go
+create table [User]
+(
+	UserID int primary key identity,
+	UserSurname nvarchar(100) not null,
+	UserName nvarchar(100) not null,
+	UserPatronymic nvarchar(100) not null,
+	UserLogin nvarchar(max) not null,
+	UserPassword nvarchar(max) not null,
+	UserRole int foreign key references [Role](RoleID) not null
+)
+go
+create table [Order]
+(
+	OrderID int primary key identity,
+	OrderStatus nvarchar(max) not null,
+	OrderDeliveryDate datetime not null,
+	OrderPickupPoint nvarchar(max) not null
+)
+go
+create table Product
+(
+	ProductArticleNumber nvarchar(100) primary key,
+	ProductName nvarchar(max) not null,
+	ProductDescription nvarchar(max) not null,
+	ProductCategory nvarchar(max) not null,
+	ProductPhoto image not null,
+	ProductManufacturer nvarchar(max) not null,
+	ProductCost decimal(19,4) not null,
+	ProductDiscountAmount tinyint null,
+	ProductQuantityInStock int not null,
+	ProductStatus nvarchar(max) not null,
+)
+go
+create table OrderProduct
+(
+	OrderID int foreign key references [Order](OrderID) not null,
+	ProductArticleNumber nvarchar(100) foreign key references Product(ProductArticleNumber) not null,
+	Primary key (OrderID,ProductArticleNumber)
+)
+```
 
 Проанализировав запрос к БД и предоставленные таблицы, можно заметить несоответствие.  
 Построим ER-диаграммы для данных, которые мы хотим импортировать и для предлагаемой структуры БД из запроса.
@@ -169,9 +221,17 @@
 
 Несложно заметить, что атрибуты сущностей совпадают не везде, а также сущность Role отсутствует в импортируемых данных.  
 Посмотрим, какие именно атрибуты не совпадают:
-* какой-то атрибут 1
-* какой-то атрибут 2
+* в сущности User в импортируемых данных ФИО хранится в одном столбце, в предлагаемом запросе - в разных;
+* в импортируемых данных нет связи товаров с заказами;
+* в сущности "Заказ" внешний ключ на несуществующий атрибут PointID;
+* атрибут ProductCurrentDiscount есть только в сущности "Товар";
+* непонятно, что именно означает атрибут ProductStatus. Скорее всего, это отсутствие/наличие на складе, вычислимое значение, зависит от количества товара на складе. Чтобы избавиться от ненужной нам транзитивной зависиммости, уберем этот атрибут.
 
 Информацию о ролях следует уточнить у заказчика, но у нас нет такой возможности, поэтому обусловимся, что 1 - это администратор, 2 - модератор и 3 - пользователь.
 
 Составим новую ER-модель и попробуем нормализовать до третьей формы:
+
+![Новая ER-модель](/TutorialResources/mbGoodER.png)
+*Новая ER-модель*
+
+Информацию о производителе и поставщике оставляем в сущности "Product", так как у нас нет никакой информации, кроме их названия - следовательно, не возникает транзитивной зависимости.  
